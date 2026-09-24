@@ -1236,6 +1236,8 @@ export default function App() {
           return !l || l.visible !== false;
         })}
         scaleSettings={scaleSettings}
+        gridSettings={gridSettings}
+        layers={layers}
         projectMetadata={projectMetadata}
         onUpdateMetadata={setProjectMetadata}
         onExportPNG={handleExportPNG}
