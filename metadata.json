@@ -1,0 +1,6 @@
+{
+  "name": "ArchiPlan Studio - Denah & CAD Editor",
+  "description": "Aplikasi desain denah arsitektur profesional dengan presisi skala, custom shape, dimensi otomatis, dan ekspor CAD (DXF) serta PDF.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
