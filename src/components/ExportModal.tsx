@@ -73,7 +73,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [meta, setMeta] = useState<ProjectMetadata>(projectMetadata);
 
   // GitHub Sync state
-  const [ghRepo, setGhRepo] = useState<string>(() => localStorage.getItem('archiplan_gh_repo') || '');
+  const [ghRepo, setGhRepo] = useState<string>(() => localStorage.getItem('archiplan_gh_repo') || 'eka-gumelar/EKA-CAD');
   const [ghToken, setGhToken] = useState<string>(() => localStorage.getItem('archiplan_gh_token') || '');
   const [ghBranch, setGhBranch] = useState<string>(() => localStorage.getItem('archiplan_gh_branch') || 'main');
   const [syncDXF, setSyncDXF] = useState<boolean>(true);
@@ -216,7 +216,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
       if (!putRes.ok) {
         const errJson = await putRes.json().catch(() => ({}));
-        throw new Error(errJson.message || `Gagal sync (Status ${putRes.status})`);
+        if (putRes.status === 401) {
+          throw new Error('Token GitHub tidak valid atau kedaluwarsa. Pastikan token memiliki scope "repo" (Read and Write).');
+        }
+        if (putRes.status === 404) {
+          throw new Error(`Repositori "${cleanRepo}" tidak ditemukan atau Token tidak memiliki akses ke repositori ini. Pastikan repositori sudah dibuat di GitHub dan nama repositori benar (format: username/repo).`);
+        }
+        if (putRes.status === 409) {
+          throw new Error('Repositori GitHub masih kosong atau branch belum dibuat. Lakukan push source code pertama kali via Terminal/Git atau inisialisasi dengan README di GitHub.');
+        }
+        throw new Error(errJson.message || `Gagal sync (Status HTTP ${putRes.status})`);
       }
 
       const putData = await putRes.json();
@@ -278,11 +287,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     }
   };
 
+  const targetCleanRepo = ghRepo.trim()
+    ? ghRepo.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '')
+    : 'USERNAME/REPO';
+  const targetAuthUrl = ghToken.trim()
+    ? `https://${ghToken.trim()}@github.com/${targetCleanRepo}.git`
+    : `https://github.com/${targetCleanRepo}.git`;
+
   const copyGitCommands = () => {
-    const clean = ghRepo.trim()
-      ? ghRepo.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '')
-      : 'USERNAME/REPO';
-    const cmd = `git remote add origin https://github.com/${clean}.git\ngit branch -M main\ngit push -u origin main`;
+    const cmd = `git remote add origin ${targetAuthUrl} 2>/dev/null || git remote set-url origin ${targetAuthUrl}\ngit branch -M main\ngit push -u origin main`;
     navigator.clipboard.writeText(cmd);
     setCopiedCmd(true);
     setTimeout(() => setCopiedCmd(false), 2000);
@@ -729,7 +742,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
                     <Terminal className="w-3.5 h-3.5 text-amber-400" />
-                    Opsi Terminal: Push Seluruh Source Code ke GitHub
+                    Opsi Push Source Code Lengkap via Terminal / Git
                   </span>
                   <button
                     onClick={copyGitCommands}
@@ -739,9 +752,25 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     <span>{copiedCmd ? 'Tersalin!' : 'Salin Perintah'}</span>
                   </button>
                 </div>
-                <pre className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 text-[10px] font-mono text-slate-300 overflow-x-auto leading-relaxed select-all">
-                  git remote add origin https://github.com/{ghRepo.trim() ? ghRepo.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '') : 'USERNAME/REPO'}.git&#10;git branch -M main&#10;git push -u origin main
+                <pre className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 text-[10px] font-mono text-slate-300 overflow-x-auto leading-relaxed select-all whitespace-pre-wrap">
+                  {`git remote add origin ${targetAuthUrl} 2>/dev/null || git remote set-url origin ${targetAuthUrl}\ngit branch -M main\ngit push -u origin main`}
                 </pre>
+              </div>
+
+              {/* GitHub Pages Automatic Deployment Guide */}
+              <div className="p-3.5 bg-emerald-950/20 border border-emerald-800/40 rounded-xl space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-emerald-300 font-semibold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Deploy Otomatis ke GitHub Pages (CI/CD Siap Pakai)</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Repositori ini sudah dilengkapi alur otomatisasi <code className="text-emerald-300 bg-emerald-950/60 px-1 py-0.5 rounded font-mono">.github/workflows/deploy.yml</code>. Setiap kali Anda push ke GitHub:
+                </p>
+                <ol className="list-decimal pl-4 space-y-1 text-[11px] text-slate-300">
+                  <li>Buka repositori di GitHub dan klik <strong>Settings</strong> &rarr; <strong>Pages</strong>.</li>
+                  <li>Di menu <strong>Build and deployment</strong> &rarr; <strong>Source</strong>, pilih <strong>GitHub Actions</strong>.</li>
+                  <li>Aplikasi web interaktif akan otomatis terbit dan dapat diakses langsung oleh siapa saja di link <code>https://&lt;username&gt;.github.io/&lt;repo&gt;/</code>!</li>
+                </ol>
               </div>
             </div>
           )}
